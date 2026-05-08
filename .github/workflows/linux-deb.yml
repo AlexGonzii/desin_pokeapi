@@ -1,0 +1,56 @@
+name: Build DEB (Linux)
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install dependencies
+        run: |
+          sudo apt update
+          pip install --upgrade pip
+          pip install pyside6 requests pyinstaller
+
+      - name: ⚙️ Build app (Linux)
+        run: |
+          pyinstaller --onefile --name pokeapi-app main.py
+
+      - name: 📦 Install fpm
+        run: |
+          sudo apt-get install -y ruby ruby-dev build-essential
+          sudo gem install --no-document fpm
+
+      - name: 📦 Prepare package
+        run: |
+          mkdir -p package/usr/local/bin
+          cp dist/pokeapi-app package/usr/local/bin/
+          chmod +x package/usr/local/bin/pokeapi-app
+
+      - name: 📦 Create .deb
+        run: |
+          fpm -s dir -t deb \
+            -n pokeapi-app \
+            -v 1.0 \
+            -C package \
+            usr/
+
+      - name: 📤 Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: "*.deb"
